@@ -568,3 +568,129 @@ body {
   background: rgba(0, 212, 255, 0.25);
   color: var(--text-primary);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   RESPONSIVE — MOBILE / TABLET
+   ══════════════════════════════════════════════════════════════ */
+
+/* Tablet: sidebar más estrecha */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 180px;
+  }
+  .topbar-stat {
+    display: none;
+  }
+  .topbar-stat:first-child,
+  .topbar-stat:nth-child(2) {
+    display: block;
+  }
+}
+
+/* Mobile: sidebar oculta, bottom nav visible */
+@media (max-width: 768px) {
+  html, body, #root {
+    overflow: auto;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  /* Bottom navigation bar */
+  .mobile-nav {
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: rgba(8, 10, 22, 0.97);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    padding: 6px 4px max(6px, env(safe-area-inset-bottom));
+    gap: 2px;
+    overflow-x: auto;
+  }
+
+  .mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 6px 8px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    min-width: 52px;
+    flex-shrink: 0;
+    transition: background 0.15s;
+  }
+
+  .mobile-nav-item.active {
+    background: rgba(245,158,11,0.12);
+  }
+
+  .mobile-nav-item .icon {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .mobile-nav-item .label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .mobile-nav-item.active .label {
+    color: var(--cyan);
+  }
+
+  /* Main area: full width, bottom padding for nav */
+  .mobile-main {
+    padding-bottom: 80px !important;
+  }
+
+  /* Topbar: compact on mobile */
+  .topbar {
+    height: auto;
+    padding: 10px 14px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .topbar-stat {
+    display: none;
+  }
+
+  .topbar-stat.mobile-show {
+    display: block;
+  }
+
+  /* Glass panel: reduce padding */
+  .glass-panel {
+    border-radius: var(--r-md);
+  }
+
+  /* Chat panel: full screen on mobile */
+  .chat-mobile-fullscreen {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+    z-index: 200 !important;
+  }
+}
+
+/* Desktop: always hide mobile nav */
+@media (min-width: 769px) {
+  .mobile-nav {
+    display: none;
+  }
+}

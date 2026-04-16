@@ -128,7 +128,15 @@ function GameApp() {
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem("nexus-theme") ?? "void");
   const [showChat, setShowChat] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
   const { unreadCount } = useChatStore();
+
+  // Detect mobile
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   // Sync game state from server via WebSocket
   useGameSync();
@@ -463,7 +471,8 @@ function GameApp() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.97 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            style={{
+            className={isMobile ? "chat-mobile-fullscreen" : ""}
+            style={isMobile ? {} : {
               position: "fixed",
               right: 16,
               bottom: 16,
@@ -484,8 +493,29 @@ function GameApp() {
         )}
       </AnimatePresence>
 
+      {/* ── MOBILE BOTTOM NAV ──────────────────────────────────── */}
+      <nav className="mobile-nav">
+        {NAV_ITEMS.map(item => (
+          <button
+            key={item.id}
+            className={`mobile-nav-item ${view === item.id ? "active" : ""}`}
+            onClick={() => setView(item.id)}
+          >
+            <span className="icon">{item.icon}</span>
+            <span className="label">{item.label.split(" ")[0]}</span>
+          </button>
+        ))}
+        <button
+          className={`mobile-nav-item ${showChat ? "active" : ""}`}
+          onClick={() => setShowChat(s => !s)}
+        >
+          <span className="icon">💬</span>
+          <span className="label">Chat{(unreadCount ?? 0) > 0 ? ` (${unreadCount})` : ""}</span>
+        </button>
+      </nav>
+
       {/* ── MAIN AREA ──────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "10px 10px 10px 0", minWidth: 0, overflow: "hidden" }}>
+      <div className={isMobile ? "mobile-main" : ""} style={{ flex: 1, display: "flex", flexDirection: "column", padding: isMobile ? "8px" : "10px 10px 10px 0", minWidth: 0, overflow: "hidden" }}>
 
         {/* Top Bar */}
         <div className="topbar">

@@ -14,21 +14,23 @@ export interface SyndicateUpgrade {
   purchased: number; icon: string; tier: number;
 }
 
+// Balance v2: early game más fluido (cpsEach +50% tier 0-1), mid-game igual, late game intacto
+// Multiplicador de coste: 1.15× (bajado de 1.18× para reducir muro mid-game)
 const BASE_UPGRADES: SyndicateUpgrade[] = [
-  { id:'u01', name:'Script Kiddie',      description:'Bot básico que escanea puertos abiertos.',         baseCost:50,           cost:50,           cpsEach:0.1,      purchased:0, icon:'🖱️', tier:0 },
-  { id:'u02', name:'Nodo de Minería',    description:'Minero de datos pasivo en la darknet.',            baseCost:350,          cost:350,          cpsEach:0.8,      purchased:0, icon:'⛏️', tier:0 },
-  { id:'u03', name:'Proxy Farm',         description:'Red de proxies para multiplicar extracción.',      baseCost:3500,         cost:3500,         cpsEach:6,        purchased:0, icon:'🌐', tier:1 },
-  { id:'u04', name:'Granja Cuántica',    description:'Computación cuántica para descifrar datos.',       baseCost:35000,        cost:35000,        cpsEach:40,       purchased:0, icon:'💠', tier:1 },
-  { id:'u05', name:'Cluster Neural',     description:'Red neuronal que aprende patrones de mercado.',    baseCost:400000,       cost:400000,       cpsEach:220,      purchased:0, icon:'🧠', tier:2 },
-  { id:'u06', name:'Satélite Espía',     description:'Acceso orbital a comunicaciones corporativas.',    baseCost:5000000,      cost:5000000,      cpsEach:1200,     purchased:0, icon:'🛰️', tier:2 },
-  { id:'u07', name:'Agente de Campo',    description:'Operativos encubiertos infiltrados en rivales.',   baseCost:75000000,     cost:75000000,     cpsEach:7000,     purchased:0, icon:'🕵️', tier:3 },
-  { id:'u08', name:'Centro de Mando',    description:'Control centralizado de todas las operaciones.',   baseCost:1200000000,   cost:1200000000,   cpsEach:40000,    purchased:0, icon:'🏛️', tier:3 },
-  { id:'u09', name:'Cable Submarino',    description:'Interceptas todo el ancho de banda transoceánico.',baseCost:20000000000,  cost:20000000000,  cpsEach:240000,   purchased:0, icon:'🌊', tier:4 },
-  { id:'u10', name:'IA Omnisciente',     description:'Superinteligencia artificial autónoma.',           baseCost:300000000000, cost:300000000000, cpsEach:1500000,  purchased:0, icon:'🤖', tier:4 },
-  { id:'u11', name:'Esfera de Dyson',    description:'Estrellas enteras puramente para minar cripto.',   baseCost:4e12, cost:4e12, cpsEach:9000000,  purchased:0, icon:'☀️', tier:5 },
-  { id:'u12', name:'Motor de Materia',   description:'Convierte materia inerte en oro virtual.',         baseCost:5.5e13, cost:5.5e13, cpsEach:60000000, purchased:0, icon:'⚛️', tier:5 },
-  { id:'u13', name:'Computadora Galáctica', description:'Toda la Vía Láctea es un procesador.',         baseCost:7e14, cost:7e14, cpsEach:400000000, purchased:0, icon:'🌌', tier:6 },
-  { id:'u14', name:'Manipulador Temporal',  description:'Invierte en el pasado con rendimientos futuros.', baseCost:8.5e15, cost:8.5e15, cpsEach:2700000000, purchased:0, icon:'⏳', tier:6 },
+  { id:'u01', name:'Script Kiddie',         description:'Bot básico que escanea puertos abiertos.',          baseCost:30,           cost:30,           cpsEach:0.2,       purchased:0, icon:'🖱️', tier:0 },
+  { id:'u02', name:'Nodo de Minería',       description:'Minero de datos pasivo en la darknet.',             baseCost:200,          cost:200,          cpsEach:1.2,       purchased:0, icon:'⛏️', tier:0 },
+  { id:'u03', name:'Proxy Farm',            description:'Red de proxies para multiplicar extracción.',       baseCost:2200,         cost:2200,         cpsEach:8,         purchased:0, icon:'🌐', tier:1 },
+  { id:'u04', name:'Granja Cuántica',       description:'Computación cuántica para descifrar datos.',        baseCost:24000,        cost:24000,        cpsEach:50,        purchased:0, icon:'💠', tier:1 },
+  { id:'u05', name:'Cluster Neural',        description:'Red neuronal que aprende patrones de mercado.',     baseCost:280000,       cost:280000,       cpsEach:260,       purchased:0, icon:'🧠', tier:2 },
+  { id:'u06', name:'Satélite Espía',        description:'Acceso orbital a comunicaciones corporativas.',     baseCost:3800000,      cost:3800000,      cpsEach:1400,      purchased:0, icon:'🛰️', tier:2 },
+  { id:'u07', name:'Agente de Campo',       description:'Operativos encubiertos infiltrados en rivales.',    baseCost:52000000,     cost:52000000,     cpsEach:7800,      purchased:0, icon:'🕵️', tier:3 },
+  { id:'u08', name:'Centro de Mando',       description:'Control centralizado de todas las operaciones.',    baseCost:900000000,    cost:900000000,    cpsEach:44000,     purchased:0, icon:'🏛️', tier:3 },
+  { id:'u09', name:'Cable Submarino',       description:'Interceptas todo el ancho de banda transoceánico.',baseCost:15000000000,  cost:15000000000,  cpsEach:260000,    purchased:0, icon:'🌊', tier:4 },
+  { id:'u10', name:'IA Omnisciente',        description:'Superinteligencia artificial autónoma.',            baseCost:220000000000, cost:220000000000, cpsEach:1600000,   purchased:0, icon:'🤖', tier:4 },
+  { id:'u11', name:'Esfera de Dyson',       description:'Estrellas enteras puramente para minar cripto.',    baseCost:3e12,  cost:3e12,  cpsEach:10000000,  purchased:0, icon:'☀️', tier:5 },
+  { id:'u12', name:'Motor de Materia',      description:'Convierte materia inerte en oro virtual.',          baseCost:4e13,  cost:4e13,  cpsEach:65000000,  purchased:0, icon:'⚛️', tier:5 },
+  { id:'u13', name:'Computadora Galáctica', description:'Toda la Vía Láctea es un procesador.',             baseCost:5e14,  cost:5e14,  cpsEach:430000000, purchased:0, icon:'🌌', tier:6 },
+  { id:'u14', name:'Manipulador Temporal',  description:'Invierte en el pasado con rendimientos futuros.',   baseCost:6e15,  cost:6e15,  cpsEach:2900000000,purchased:0, icon:'⏳', tier:6 },
 ];
 
 // ── Session: estado en memoria por usuario activo ─────────────────

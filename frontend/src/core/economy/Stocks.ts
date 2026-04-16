@@ -206,6 +206,151 @@ const STOCK_SEEDS: StockSeed[] = [
     description:
       "Banco de inversión y gestión de activos. Administra fondos por valor de €12 000 millones y lidera la financiación de los proyectos de energía renovable más ambiciosos del país.",
   },
+  // ── Nuevos sectores ────────────────────────────────────────────
+  {
+    ticker: "DEFX",
+    companyName: "ArmoraTech Defense",
+    sector: "defensa",
+    basePrice: 78,
+    beta: 0.7,
+    peRatio: 16,
+    dividendYield: 1.5,
+    sharesOutstanding: 140,
+    description:
+      "Fabricante de sistemas de defensa autónomos y drones militares de última generación. Sus contratos con los gobiernos del continente representan ingresos garantizados por 15 años.",
+  },
+  {
+    ticker: "BGEN",
+    companyName: "BioGenesis Labs",
+    sector: "biotecnologia",
+    basePrice: 112,
+    beta: 1.9,
+    peRatio: 0,
+    dividendYield: 0,
+    sharesOutstanding: 95,
+    description:
+      "Biotecnología de vanguardia: edición genómica, terapias celulares y vacunas de ARNm. Alto riesgo, alto potencial. Sus ensayos clínicos en fase III podrían cambiar la medicina.",
+  },
+  {
+    ticker: "LUXE",
+    companyName: "Aurelio Luxury Group",
+    sector: "lujo",
+    basePrice: 195,
+    beta: 0.5,
+    peRatio: 28,
+    dividendYield: 1.1,
+    sharesOutstanding: 60,
+    description:
+      "Holding de marcas de ultra-lujo: relojes, joyería, yates y residencias privadas. Sus clientes son los 0,01% más ricos del planeta. Inmune a las recesiones ordinarias.",
+  },
+  {
+    ticker: "CRTX",
+    companyName: "CryptoNex Financial",
+    sector: "fintech",
+    basePrice: 38,
+    beta: 2.4,
+    peRatio: 55,
+    dividendYield: 0,
+    sharesOutstanding: 480,
+    description:
+      "Exchange de criptoactivos y servicios DeFi. Volumen diario de €2 000 millones. Extremadamente volátil — puede duplicarse o hundirse en horas según el sentimiento del mercado.",
+  },
+  {
+    ticker: "LOGX",
+    companyName: "SwiftLog Logistics",
+    sector: "logistica",
+    basePrice: 22,
+    beta: 0.8,
+    peRatio: 17,
+    dividendYield: 2.9,
+    sharesOutstanding: 400,
+    description:
+      "Red logística automatizada con flotas de drones y vehículos autónomos. Procesa 3 millones de paquetes al día y opera el mayor hub de distribución de la región.",
+  },
+  {
+    ticker: "AIMD",
+    companyName: "MindCorp AI",
+    sector: "inteligencia_artificial",
+    basePrice: 145,
+    beta: 2.1,
+    peRatio: 120,
+    dividendYield: 0,
+    sharesOutstanding: 200,
+    description:
+      "Empresa líder en inteligencia artificial general. Sus modelos de lenguaje y visión dominan el mercado B2B. Valorada en €80 000 millones, crece al 200% anual.",
+  },
+  {
+    ticker: "SCRT",
+    companyName: "SecureShield Cyber",
+    sector: "ciberseguridad",
+    basePrice: 56,
+    beta: 1.1,
+    peRatio: 32,
+    dividendYield: 0.8,
+    sharesOutstanding: 175,
+    description:
+      "Ciberseguridad corporativa e infraestructuras críticas. Con el auge de los ciberataques, su cartera de clientes no para de crecer. Contrato exclusivo con 6 bancos centrales.",
+  },
+  {
+    ticker: "ORBT",
+    companyName: "Orbital Dynamics",
+    sector: "aeroespacial",
+    basePrice: 320,
+    beta: 1.6,
+    peRatio: 80,
+    dividendYield: 0,
+    sharesOutstanding: 45,
+    description:
+      "Lanzaderas reutilizables y satélites de comunicación. Su red de 800 satélites en órbita baja ofrece internet de alta velocidad en todo el planeta. El futuro cotiza aquí.",
+  },
+  {
+    ticker: "MINE",
+    companyName: "DeepCore Mining",
+    sector: "mineria",
+    basePrice: 14,
+    beta: 1.4,
+    peRatio: 9,
+    dividendYield: 4.8,
+    sharesOutstanding: 950,
+    description:
+      "Extracción de minerales raros y litio para baterías de nueva generación. La electrificación global hace que cada tonelada extraída valga más. Dividendos generosos y estables.",
+  },
+  {
+    ticker: "NRVX",
+    companyName: "NervaPharm",
+    sector: "neurociencia",
+    basePrice: 88,
+    beta: 1.3,
+    peRatio: 35,
+    dividendYield: 0.5,
+    sharesOutstanding: 120,
+    description:
+      "Tratamientos para enfermedades neurodegenerativas y mejora cognitiva. Su fármaco insignia lleva 3 años en el top de ventas mundial. Investiga en interfaces cerebro-máquina.",
+  },
+  {
+    ticker: "AGRI",
+    companyName: "TerraGrow Agritech",
+    sector: "agrotech",
+    basePrice: 19,
+    beta: 0.6,
+    peRatio: 14,
+    dividendYield: 3.1,
+    sharesOutstanding: 680,
+    description:
+      "Agricultura vertical e hidroponía a escala industrial. Produce alimentos el año entero sin depender del clima. Sus granjas urbanas ya alimentan a 2 millones de personas.",
+  },
+  {
+    ticker: "QNTM",
+    companyName: "QuantumBridge Computing",
+    sector: "computacion_cuantica",
+    basePrice: 230,
+    beta: 2.8,
+    peRatio: 0,
+    dividendYield: 0,
+    sharesOutstanding: 30,
+    description:
+      "Pionera en computación cuántica comercial. Sus procesadores de 1 000 qubits resuelven en segundos problemas que un supercomputador tardaría siglos. La disrupción definitiva.",
+  },
 ];
 
 // Market indices definitions

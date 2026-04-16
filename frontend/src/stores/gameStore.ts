@@ -25,13 +25,14 @@ export interface SyndicateUpgrade {
   tier: number;
 }
 
+// Balance v2: early game más fluido, multiplicador 1.15× en lugar de 1.18×
 const UPGRADES: SyndicateUpgrade[] = [
   { id:'u01', name:'Script Kiddie',      description:'Bot básico que escanea puertos abiertos.',         baseCost:15,          cost:15,          cpsEach:0.2,      purchased:0, icon:'🖱️', tier:0 },
-  { id:'u02', name:'Nodo de Minería',    description:'Minero de datos pasivo en la darknet.',            baseCost:100,         cost:100,         cpsEach:1,        purchased:0, icon:'⛏️', tier:0 },
-  { id:'u03', name:'Proxy Farm',         description:'Red de proxies para multiplicar extracción.',      baseCost:1100,        cost:1100,        cpsEach:8,        purchased:0, icon:'🌐', tier:1 },
-  { id:'u04', name:'Granja Cuántica',    description:'Computación cuántica para descifrar datos.',       baseCost:12000,       cost:12000,       cpsEach:47,       purchased:0, icon:'💠', tier:1 },
-  { id:'u05', name:'Cluster Neural',     description:'Red neuronal que aprende patrones de mercado.',    baseCost:130000,      cost:130000,      cpsEach:260,      purchased:0, icon:'🧠', tier:2 },
-  { id:'u06', name:'Satélite Espía',     description:'Acceso orbital a comunicaciones corporativas.',    baseCost:1400000,     cost:1400000,     cpsEach:1400,     purchased:0, icon:'🛰️', tier:2 },
+  { id:'u02', name:'Nodo de Minería',    description:'Minero de datos pasivo en la darknet.',            baseCost:100,         cost:100,         cpsEach:1.2,      purchased:0, icon:'⛏️', tier:0 },
+  { id:'u03', name:'Proxy Farm',         description:'Red de proxies para multiplicar extracción.',      baseCost:1100,        cost:1100,        cpsEach:9,        purchased:0, icon:'🌐', tier:1 },
+  { id:'u04', name:'Granja Cuántica',    description:'Computación cuántica para descifrar datos.',       baseCost:12000,       cost:12000,       cpsEach:50,       purchased:0, icon:'💠', tier:1 },
+  { id:'u05', name:'Cluster Neural',     description:'Red neuronal que aprende patrones de mercado.',    baseCost:130000,      cost:130000,      cpsEach:280,      purchased:0, icon:'🧠', tier:2 },
+  { id:'u06', name:'Satélite Espía',     description:'Acceso orbital a comunicaciones corporativas.',    baseCost:1400000,     cost:1400000,     cpsEach:1500,     purchased:0, icon:'🛰️', tier:2 },
   { id:'u07', name:'Agente de Campo',    description:'Operativos encubiertos infiltrados en rivales.',   baseCost:20000000,    cost:20000000,    cpsEach:7800,     purchased:0, icon:'🕵️', tier:3 },
   { id:'u08', name:'Centro de Mando',    description:'Control centralizado de todas las operaciones.',   baseCost:330000000,   cost:330000000,   cpsEach:44000,    purchased:0, icon:'🏛️', tier:3 },
   { id:'u09', name:'Cable Submarino',    description:'Interceptas todo el ancho de banda transoceánico.',baseCost:5100000000,  cost:5100000000,  cpsEach:260000,   purchased:0, icon:'🌊', tier:4 },
