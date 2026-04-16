@@ -151,7 +151,7 @@ export default function ChatPanel() {
     : dmPartner ? [user!.id, dmPartner.id].sort().join(":") : "";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", color: C.textPrimary }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", color: C.textPrimary, background: "#0b0f1e" }}>
 
       {/* Tabs */}
       <div style={{

@@ -685,6 +685,7 @@ body {
     height: 100% !important;
     border-radius: 0 !important;
     z-index: 200 !important;
+    background: #0b0f1e !important;
   }
 }
 

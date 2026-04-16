@@ -7,8 +7,6 @@ import api from "../lib/api";
 
 export function useGameSync() {
   const { isAuthenticated } = useAuthStore();
-  const { setServerState, addNotification, updateStockPrices } = useGameStore();
-  const { subscribeSocket: subscribeChatSocket } = useChatStore();
   const loadedRef = useRef(false);
 
   // ── Carga inicial del estado desde el servidor ────────────────
@@ -17,15 +15,14 @@ export function useGameSync() {
     loadedRef.current = true;
 
     api.get("/game/state")
-      .then(res => setServerState(res.data))
+      .then(res => useGameStore.getState().setServerState(res.data))
       .catch(err => console.error("Failed to load game state:", err));
-  }, [isAuthenticated, setServerState]);
+  }, [isAuthenticated]);
 
   // ── Guardar antes de cerrar la pestaña ───────────────────────
   useEffect(() => {
     if (!isAuthenticated) return;
     const handleBeforeUnload = () => {
-      // Usar sendBeacon para garantizar que la request llega aunque se cierre el tab
       const token = localStorage.getItem("nexus_access_token");
       if (token) {
         navigator.sendBeacon(
@@ -33,7 +30,6 @@ export function useGameSync() {
           new Blob([JSON.stringify({ token })], { type: "application/json" })
         );
       }
-      // También llamar al endpoint REST normalmentte (cubre la mayoría de casos)
       api.post("/game/save").catch(() => {});
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -49,7 +45,11 @@ export function useGameSync() {
     return () => clearInterval(interval);
   }, [isAuthenticated]);
 
-  // ── Suscripción WebSocket ────────────────────────────────────
+  // ── Suscripción WebSocket ─────────────────────────────────────
+  // Se usa getState() para acceder a los métodos del store en lugar de
+  // suscribirlos como deps del efecto — evita que el efecto se re-ejecute
+  // en cada tick del juego (React 19 + Zustand 5 pueden tratar las funciones
+  // del store como inestables, acumulando suscripciones y causando error #185)
   useEffect(() => {
     if (!isAuthenticated) return;
     const socket = getSocket();
@@ -61,21 +61,19 @@ export function useGameSync() {
       influence: number;
       notifications: any[];
     }) => {
-      // Server is authoritative for credits — it accumulates server-side and
-      // includes any clicks that were sent via /game/action.
-      setServerState({
+      useGameStore.getState().setServerState({
         credits: data.credits,
         creditsPerSecond: data.creditsPerSecond,
         currentDay: data.currentDay,
         influence: data.influence,
       });
       if (data.notifications?.length) {
-        data.notifications.forEach(n => addNotification?.(n));
+        data.notifications.forEach(n => useGameStore.getState().addNotification?.(n));
       }
     });
 
     socket.on("game:achievement", (achievement: any) => {
-      addNotification?.({
+      useGameStore.getState().addNotification?.({
         type: "achievement",
         title: achievement.title,
         message: achievement.description,
@@ -83,14 +81,13 @@ export function useGameSync() {
       });
     });
 
-    // ── Stock price sync: backend es la fuente de verdad ─────────
     socket.on("stock:price_update", (prices: Record<string, number>) => {
-      updateStockPrices(prices);
+      useGameStore.getState().updateStockPrices(prices);
     });
 
-    // ── Chat global (suscripción centralizada aquí para no perder
-    //    mensajes aunque el ChatPanel no esté montado) ─────────────
-    const unsubChat = subscribeChatSocket();
+    // Chat: suscripción centralizada para recibir mensajes aunque el
+    // ChatPanel no esté montado (el contador de no-leídos funciona siempre)
+    const unsubChat = useChatStore.getState().subscribeSocket();
 
     return () => {
       socket.off("game:tick");
@@ -98,5 +95,5 @@ export function useGameSync() {
       socket.off("stock:price_update");
       unsubChat();
     };
-  }, [isAuthenticated, setServerState, addNotification, updateStockPrices, subscribeChatSocket]);
+  }, [isAuthenticated]); // Solo se re-ejecuta cuando cambia la autenticación
 }

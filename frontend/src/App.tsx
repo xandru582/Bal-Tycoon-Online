@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Component, ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useGameStore, formatNumber } from "./stores/gameStore";
 import { useAuthStore } from "./stores/authStore";
@@ -604,6 +604,56 @@ function GameApp() {
   );
 }
 
+// ── Global Error Boundary ─────────────────────────────────────────
+interface GEBState { hasError: boolean; error: Error | null }
+class GlobalErrorBoundary extends Component<{ children: ReactNode }, GEBState> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error): GEBState {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, info: any) {
+    console.error("[GlobalErrorBoundary] Error capturado:", error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          width: "100vw", height: "100vh", display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", gap: 20,
+          background: "#06080f", color: "#e2e8f0",
+          fontFamily: '"IBM Plex Mono", monospace',
+        }}>
+          <div style={{ fontSize: 48 }}>⚠️</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: "#f43f5e" }}>Error inesperado</div>
+          <div style={{
+            fontSize: 11, color: "#64748b", textAlign: "center",
+            maxWidth: 440, lineHeight: 1.6,
+            padding: "12px 16px", borderRadius: 8,
+            background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.15)",
+          }}>
+            {this.state.error?.message ?? "Error desconocido"}
+          </div>
+          <button
+            onClick={() => { this.setState({ hasError: false, error: null }); }}
+            style={{
+              padding: "10px 24px", borderRadius: 8, cursor: "pointer",
+              background: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.3)",
+              color: "#00d4ff", fontWeight: 700, fontSize: 13,
+              fontFamily: "inherit",
+            }}
+          >
+            🔄 Reintentar
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ── Root App: auth gate ───────────────────────────────────────────
 export default function App() {
   const { isAuthenticated, fetchMe } = useAuthStore();
@@ -614,6 +664,9 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!isAuthenticated) return <AuthView />;
-  return <GameApp />;
+  return (
+    <GlobalErrorBoundary>
+      {!isAuthenticated ? <AuthView /> : <GameApp />}
+    </GlobalErrorBoundary>
+  );
 }
