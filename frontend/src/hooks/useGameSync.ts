@@ -1,12 +1,14 @@
 import { useEffect, useRef } from "react";
 import { useGameStore } from "../stores/gameStore";
 import { useAuthStore } from "../stores/authStore";
+import { useChatStore } from "../stores/chatStore";
 import { getSocket } from "../lib/socket";
 import api from "../lib/api";
 
 export function useGameSync() {
   const { isAuthenticated } = useAuthStore();
-  const { setServerState, addNotification } = useGameStore();
+  const { setServerState, addNotification, updateStockPrices } = useGameStore();
+  const { subscribeSocket: subscribeChatSocket } = useChatStore();
   const loadedRef = useRef(false);
 
   // ── Carga inicial del estado desde el servidor ────────────────
@@ -81,9 +83,20 @@ export function useGameSync() {
       });
     });
 
+    // ── Stock price sync: backend es la fuente de verdad ─────────
+    socket.on("stock:price_update", (prices: Record<string, number>) => {
+      updateStockPrices(prices);
+    });
+
+    // ── Chat global (suscripción centralizada aquí para no perder
+    //    mensajes aunque el ChatPanel no esté montado) ─────────────
+    const unsubChat = subscribeChatSocket();
+
     return () => {
       socket.off("game:tick");
       socket.off("game:achievement");
+      socket.off("stock:price_update");
+      unsubChat();
     };
-  }, [isAuthenticated, setServerState, addNotification]);
+  }, [isAuthenticated, setServerState, addNotification, updateStockPrices, subscribeChatSocket]);
 }

@@ -77,7 +77,7 @@ function MessageList({ roomId, userId }: { roomId: string; userId: string }) {
 
 export default function ChatPanel() {
   const { user } = useAuthStore();
-  const { activeRoom, activeRoomType, setActiveRoom, loadHistory, sendMessage, subscribeSocket } = useChatStore();
+  const { activeRoom, activeRoomType, setActiveRoom, loadHistory, sendMessage } = useChatStore();
   const [input, setInput] = useState("");
 
   const [tab, setTab] = useState<"global" | "clan" | "dm">("global");
@@ -89,10 +89,8 @@ export default function ChatPanel() {
 
   const hasClan = !!(user?.clan_id);
 
-  useEffect(() => {
-    const unsub = subscribeSocket();
-    return unsub;
-  }, [subscribeSocket]);
+  // Note: the chat:message socket subscription is handled globally in useGameSync
+  // so messages are received even when this panel is closed (unread counter works).
 
   useEffect(() => {
     if (tab === "global") {

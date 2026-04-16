@@ -207,6 +207,7 @@ export interface GameState {
   queueProduction: (productId: string, quantity: number, facilityId: string) => void;
   buyShares: (ticker: string, shares: number) => void;
   sellShares: (ticker: string, shares: number) => void;
+  updateStockPrices: (prices: Record<string, number>) => void;
   acceptContract: (offerId: string) => void;
   breachContract: (contractId: string) => void;
   fulfillDelivery: (contractId: string, quantity: number) => void;
@@ -547,6 +548,15 @@ export const useGameStore = create<GameState>((set, _get) => ({
       return { credits: nc, _rev: state._rev + 1, totalCreditsEarned: state.totalCreditsEarned + Math.max(0, res.proceeds), influence: state.influence + (res.profit > 0 ? Math.floor(res.profit / 5000) : 0), notifications: [...state.notifications, makeNotification('success', 'Venta Ejecutada', res.message, '📉')] };
     }
     return { notifications: [...state.notifications, makeNotification('danger', 'Error', res.message, '❌')] };
+  }),
+
+  // Sync authoritative backend prices into the local StockMarket instance.
+  // Called every 5 s from the stock:price_update socket event.
+  updateStockPrices: (prices) => set((state) => {
+    for (const [ticker, price] of Object.entries(prices)) {
+      state.stockMarket.setPrice?.(ticker, price);
+    }
+    return { _rev: state._rev + 1 };
   }),
 
   // ━━ CONTRACTS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

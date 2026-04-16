@@ -909,6 +909,19 @@ export class StockMarket {
     return this._listings.get(ticker);
   }
 
+  /** Set the authoritative price for a ticker (called on stock:price_update from backend) */
+  setPrice(ticker: string, price: number): void {
+    const listing = this._listings.get(ticker);
+    if (!listing) return;
+    listing.previousClose = listing.price;
+    listing.price = price;
+    // Append to price history so charts update
+    listing.priceHistory.push({ day: this._day, price });
+    if (listing.priceHistory.length > 365) listing.priceHistory.shift();
+    if (price > listing.high52w) listing.high52w = price;
+    if (price < listing.low52w) listing.low52w = price;
+  }
+
   getAllListings(): StockListing[] {
     return [...this._listings.values()];
   }

@@ -4,9 +4,10 @@ import { globalStockService } from "../services/GlobalStockService.js";
 import { clanService } from "../services/ClanService.js";
 import { db } from "../config/database.js";
 
-const TICK_INTERVAL_MS = 1000; // tick cada segundo
+const TICK_INTERVAL_MS = 1000;           // tick cada segundo
 const LEADERBOARD_INTERVAL_MS = 5 * 60 * 1000; // leaderboard cada 5 min
 const CLAN_SYNC_INTERVAL_MS = 10 * 60 * 1000;  // sync clanes cada 10 min
+const STOCK_DAY_INTERVAL_MS = 60_000;    // 1 día de mercado = 1 minuto real
 
 export function startGlobalGameLoop(io: SocketIOServer): void {
   // Inicializar servicio de stocks
@@ -15,6 +16,8 @@ export function startGlobalGameLoop(io: SocketIOServer): void {
   let lastLeaderboardUpdate = 0;
   let lastClanSync = 0;
   let lastTick = Date.now();
+  let lastStockDay = Date.now();
+  let stockGameDay = 1;
 
   // ── Tick principal ─────────────────────────────────────────────
   setInterval(async () => {
@@ -57,8 +60,20 @@ export function startGlobalGameLoop(io: SocketIOServer): void {
     }
   }, TICK_INTERVAL_MS);
 
-  // ── Precios de stock broadcast cada 5 segundos ─────────────────
+  // ── Avance del mercado de valores + broadcast ──────────────────
+  // Cada 60 s reales = 1 día de mercado. Se avanza primero y luego
+  // se hace broadcast para que los clientes reciban los precios nuevos.
   setInterval(() => {
+    const now = Date.now();
+
+    // Avanzar 1 día de mercado si ha pasado el intervalo
+    if (now - lastStockDay >= STOCK_DAY_INTERVAL_MS) {
+      lastStockDay = now;
+      stockGameDay++;
+      globalStockService.advanceDay(stockGameDay);
+      console.log(`📈 Stock market day ${stockGameDay} — prices updated`);
+    }
+
     const prices = globalStockService.getPriceMap();
     if (Object.keys(prices).length > 0) {
       io.emit("stock:price_update", prices);
