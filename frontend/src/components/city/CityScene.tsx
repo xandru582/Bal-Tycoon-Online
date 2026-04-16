@@ -1,4 +1,4 @@
-import { Suspense, useState } from "react";
+import { Suspense, useState, useRef, useCallback } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Stars, Grid } from "@react-three/drei";
 import * as THREE from "three";
@@ -24,18 +24,58 @@ function CityLight() {
   return <pointLight ref={ref} position={[0, 3, 0]} intensity={12} color="#ff6030" distance={25} decay={2} />;
 }
 
-import { useRef } from "react";
-
 export default function CityScene({ buildings, onBidPlaced }: Props) {
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
+  const [contextLost, setContextLost] = useState(false);
+
+  const handleContextLost = useCallback(() => {
+    setContextLost(true);
+  }, []);
+
+  const handleContextRestored = useCallback(() => {
+    setContextLost(false);
+  }, []);
+
+  if (contextLost) {
+    return (
+      <div style={{
+        width: "100%", height: "100%", display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", gap: 16,
+        background: "#03050e", color: "#64748b",
+      }}>
+        <div style={{ fontSize: 36 }}>🖥️</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#94a3b8" }}>Contexto WebGL perdido</div>
+        <div style={{ fontSize: 12, color: "#475569", textAlign: "center", maxWidth: 300 }}>
+          El renderizador 3D perdió el contexto de GPU. Recarga la página para restaurarlo.
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          style={{
+            padding: "9px 20px", borderRadius: 8, cursor: "pointer",
+            background: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.3)",
+            color: "#00d4ff", fontWeight: 700, fontSize: 12,
+          }}
+        >
+          🔄 Recargar
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       <Canvas
         shadows
-        gl={{ antialias: true, alpha: false, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.9 }}
+        gl={{ antialias: true, alpha: false, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.9, powerPreference: "high-performance" }}
         camera={{ position: [42, 28, 42], fov: 48 }}
         style={{ background: "#03050e" }}
+        onCreated={({ gl }) => {
+          gl.domElement.addEventListener("webglcontextlost", (e) => {
+            e.preventDefault();
+            handleContextLost();
+          });
+          gl.domElement.addEventListener("webglcontextrestored", handleContextRestored);
+        }}
       >
         <Suspense fallback={null}>
           {/* Atmosphere */}

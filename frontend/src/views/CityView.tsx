@@ -1,8 +1,52 @@
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, Suspense, Component, ReactNode } from "react";
 import api from "../lib/api";
 import { useGameStore, formatNumber } from "../stores/gameStore";
 import { useAuthStore } from "../stores/authStore";
 import CityScene from "../components/city/CityScene";
+
+// ── Error Boundary para el render 3D ────────────────────────────────
+interface EBState { hasError: boolean; error: Error | null }
+class CityErrorBoundary extends Component<{ children: ReactNode }, EBState> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error): EBState {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error) {
+    console.error("[CityView] Error en el render 3D:", error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          height: "100%", display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", gap: 16,
+          background: "#03050e", borderRadius: 12,
+          border: "1px solid rgba(244,63,94,0.2)",
+        }}>
+          <div style={{ fontSize: 36 }}>⚠️</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#f43f5e" }}>Error en el renderizador 3D</div>
+          <div style={{ fontSize: 11, color: "#64748b", textAlign: "center", maxWidth: 320 }}>
+            {this.state.error?.message ?? "Error desconocido en Three.js / WebGL."}
+          </div>
+          <button
+            onClick={() => this.setState({ hasError: false, error: null })}
+            style={{
+              padding: "9px 20px", borderRadius: 8, cursor: "pointer",
+              background: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.3)",
+              color: "#00d4ff", fontWeight: 700, fontSize: 12,
+            }}
+          >
+            🔄 Reintentar
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export interface Building {
   id: string;
@@ -397,9 +441,11 @@ export default function CityView() {
               Cargando ciudad...
             </div>
           ) : (
-            <Suspense fallback={<div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>Iniciando render 3D...</div>}>
-              <CityScene buildings={scene3dBuildings} onBidPlaced={fetchBuildings} />
-            </Suspense>
+            <CityErrorBoundary>
+              <Suspense fallback={<div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>Iniciando render 3D...</div>}>
+                <CityScene buildings={scene3dBuildings} onBidPlaced={fetchBuildings} />
+              </Suspense>
+            </CityErrorBoundary>
           )}
         </div>
       )}
