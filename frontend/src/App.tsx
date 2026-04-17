@@ -5,6 +5,7 @@ import { useAuthStore } from "./stores/authStore";
 import { useChatStore } from "./stores/chatStore";
 import { useGameSync } from "./hooks/useGameSync";
 import { getSocket } from "./lib/socket";
+import { Toaster } from "react-hot-toast";
 import ChatPanel from "./components/chat/ChatPanel";
 import WelcomeModal, { shouldShowOnboarding } from "./components/onboarding/WelcomeModal";
 
@@ -21,6 +22,7 @@ import SocialView from "./views/SocialView";
 import ClanView from "./views/ClanView";
 import CityView from "./views/CityView";
 import SearchView from "./views/SearchView";
+import UnderworldView from "./views/UnderworldView";
 
 const NAV_ITEMS = [
   { id: "Dashboard",     icon: "🏠", label: "Dashboard" },
@@ -32,6 +34,7 @@ const NAV_ITEMS = [
   { id: "Rivales",       icon: "⚔️", label: "Rivales" },
   { id: "Clanes",        icon: "🏴", label: "Clanes" },
   { id: "Ciudad",        icon: "🏙️", label: "Ciudad 3D" },
+  { id: "Underworld",    icon: "🦹", label: "Underworld" },
   { id: "Buscar",        icon: "🔍", label: "Buscar" },
   { id: "Logros",        icon: "🏆", label: "Logros" },
 ];
@@ -200,6 +203,10 @@ function GameApp() {
 
       {/* Welcome / Onboarding Modal (first-login only) */}
       {showWelcome && <WelcomeModal onClose={() => setShowWelcome(false)} />}
+
+      {/* Toast portal (used by Underworld view and future modules) */}
+      <Toaster position="top-right" toastOptions={{ style: { fontFamily: '"IBM Plex Mono", monospace', fontSize: 12 } }} />
+
 
       {/* Toast Notifications */}
       <AnimatePresence>
@@ -599,6 +606,7 @@ function GameApp() {
               {view === "Rivales"       && <RivalsView />}
               {view === "Clanes"        && <ClanView />}
               {view === "Ciudad"        && <CityView />}
+              {view === "Underworld"    && <UnderworldView />}
               {view === "Buscar"        && <SearchView />}
               {view === "Logros"        && <AchievementsView />}
             </motion.div>
