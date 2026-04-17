@@ -6,6 +6,7 @@ import { useChatStore } from "./stores/chatStore";
 import { useGameSync } from "./hooks/useGameSync";
 import { getSocket } from "./lib/socket";
 import ChatPanel from "./components/chat/ChatPanel";
+import WelcomeModal, { shouldShowOnboarding } from "./components/onboarding/WelcomeModal";
 
 // Views
 import AuthView from "./views/AuthView";
@@ -128,6 +129,7 @@ function GameApp() {
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem("nexus-theme") ?? "void");
   const [showChat, setShowChat] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(() => shouldShowOnboarding());
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
   const { unreadCount } = useChatStore();
 
@@ -195,6 +197,9 @@ function GameApp() {
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative", display: "flex", overflow: "hidden" }}>
+
+      {/* Welcome / Onboarding Modal (first-login only) */}
+      {showWelcome && <WelcomeModal onClose={() => setShowWelcome(false)} />}
 
       {/* Toast Notifications */}
       <AnimatePresence>
