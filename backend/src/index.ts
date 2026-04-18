@@ -20,6 +20,7 @@ import buildingRoutes from "./routes/building.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 import missionRoutes from "./routes/mission.routes.js";
 import leaderboardRoutes from "./routes/leaderboard.routes.js";
+import underworldRoutes from "./routes/underworld.routes.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -53,6 +54,7 @@ app.use("/api/v1/buildings",   buildingRoutes);
 app.use("/api/v1/chat",        chatRoutes);
 app.use("/api/v1/missions",    missionRoutes);
 app.use("/api/v1/leaderboard", leaderboardRoutes);
+app.use("/api/v1/underworld", underworldRoutes);
 
 // ── 404 fallback ───────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
@@ -66,6 +68,27 @@ async function migrate() {
     ALTER TABLE buildings ADD COLUMN IF NOT EXISTS cps_base NUMERIC(16,4) NOT NULL DEFAULT 0;
     ALTER TABLE buildings ADD COLUMN IF NOT EXISTS for_sale BOOLEAN NOT NULL DEFAULT FALSE;
     ALTER TABLE buildings ADD COLUMN IF NOT EXISTS sale_price NUMERIC(20,4);
+  `);
+  // Underworld module (Torn-style crimes / gym / inventory) — server-authoritative
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS underworld_states (
+      user_id           UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      nerve             SMALLINT NOT NULL DEFAULT 100,
+      nerve_updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      energy            SMALLINT NOT NULL DEFAULT 100,
+      energy_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      xp                INTEGER NOT NULL DEFAULT 0,
+      stats             JSONB NOT NULL DEFAULT '{"strength":1,"defense":1,"speed":1,"dexterity":1}',
+      temp_buffs        JSONB NOT NULL DEFAULT '[]',
+      jail_until        TIMESTAMPTZ,
+      inventory         JSONB NOT NULL DEFAULT '{}',
+      crimes_committed  INTEGER NOT NULL DEFAULT 0,
+      crimes_failed     INTEGER NOT NULL DEFAULT 0,
+      total_loot        NUMERIC(24,4) NOT NULL DEFAULT 0,
+      created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_underworld_jail ON underworld_states(jail_until) WHERE jail_until IS NOT NULL;
   `);
   // Seed cps_base values for all buildings (only if still 0)
   const updates: [string, number, number][] = [

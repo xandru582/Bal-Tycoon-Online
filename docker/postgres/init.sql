@@ -243,3 +243,24 @@ INSERT INTO buildings (name, building_type, position_x, position_z, scale_y, bas
 ('Destilería de Datos','factory',    -20, -40, 2.0,  140000000,  'cps_multiplier', 0.03),
 ('Bóveda Cripto',      'bank',        10, -40, 2.5,  310000000,  'stock_discount', 0.12),
 ('Cuartel General',    'skyscraper',   0,   0, 7.0, 1000000000,  'cps_multiplier', 0.10);
+
+-- ── Underworld (Torn-style crimes / gym / inventory) ──────────────
+CREATE TABLE IF NOT EXISTS underworld_states (
+    user_id           UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    nerve             SMALLINT NOT NULL DEFAULT 100,
+    nerve_updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    energy            SMALLINT NOT NULL DEFAULT 100,
+    energy_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    xp                INTEGER NOT NULL DEFAULT 0,
+    stats             JSONB NOT NULL DEFAULT '{"strength":1,"defense":1,"speed":1,"dexterity":1}',
+    temp_buffs        JSONB NOT NULL DEFAULT '[]',
+    jail_until        TIMESTAMPTZ,
+    inventory         JSONB NOT NULL DEFAULT '{}',
+    crimes_committed  INTEGER NOT NULL DEFAULT 0,
+    crimes_failed     INTEGER NOT NULL DEFAULT 0,
+    total_loot        NUMERIC(24,4) NOT NULL DEFAULT 0,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_underworld_jail
+    ON underworld_states(jail_until) WHERE jail_until IS NOT NULL;

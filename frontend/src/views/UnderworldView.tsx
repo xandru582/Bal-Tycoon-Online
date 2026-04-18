@@ -1,6 +1,7 @@
 // ============================================================
-// NEXUS: Underworld View — Torn-City-inspired content module
-// Tabs: Crímenes · Gimnasio · Inventario · Estadísticas
+// NEXUS: Underworld View — server-authoritative content module.
+// Tabs: Crímenes · Gimnasio · Inventario · Perfil
+// All gameplay state comes from the backend.
 // ============================================================
 
 import { useEffect, useMemo, useState } from "react";
@@ -8,14 +9,13 @@ import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   useUnderworldStore,
-  getCurrentNerve,
-  getCurrentEnergy,
-  getEffectiveStats,
+  getLiveNerve,
+  getLiveEnergy,
   xpProgress,
   NERVE_MAX,
   ENERGY_MAX,
+  type UnderworldSnapshot,
 } from "../stores/underworldStore";
-import { useGameStore } from "../stores/gameStore";
 import { CRIMES, ITEMS, STAT_LABELS, TIER_LABELS, type Stat } from "../core/underworld/data";
 
 // ── helpers ───────────────────────────────────────────────
@@ -44,12 +44,11 @@ function Bar({ value, max, color, label }: { value: number; max: number; color: 
   );
 }
 
-// ── Header with resources ─────────────────────────────────
-function UnderworldHeader() {
-  const state = useUnderworldStore();
-  const nerve = getCurrentNerve(state);
-  const energy = getCurrentEnergy(state);
-  const { level, current, needed, pct } = xpProgress(state.xp);
+// ── Header ────────────────────────────────────────────────
+function UnderworldHeader({ snap }: { snap: UnderworldSnapshot }) {
+  const nerve = getLiveNerve(snap);
+  const energy = getLiveEnergy(snap);
+  const { level, current, needed, pct } = xpProgress(snap.xp);
 
   return (
     <div style={{
@@ -77,9 +76,8 @@ function UnderworldHeader() {
   );
 }
 
-// ── Jail overlay ──────────────────────────────────────────
-function JailBanner() {
-  const jailUntil = useUnderworldStore((s) => s.jailUntil);
+// ── Jail banner ───────────────────────────────────────────
+function JailBanner({ jailUntil }: { jailUntil: number | null }) {
   const [, tick] = useState(0);
   useEffect(() => {
     if (!jailUntil) return;
@@ -110,31 +108,26 @@ function JailBanner() {
 }
 
 // ── Crimes tab ────────────────────────────────────────────
-function CrimesTab() {
+function CrimesTab({ snap }: { snap: UnderworldSnapshot }) {
   const [filter, setFilter] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
-  const state = useUnderworldStore();
   const commit = useUnderworldStore((s) => s.commitCrime);
-  const level = xpProgress(state.xp).level;
-  const effective = getEffectiveStats(state);
-  const credits = useGameStore.getState();
+  const inFlight = useUnderworldStore((s) => s.inFlight);
+
+  const level = snap.level;
+  const eff = snap.effectiveStats;
+  const liveNerve = getLiveNerve(snap);
 
   const filtered = useMemo(
     () => (filter === 0 ? CRIMES : CRIMES.filter((c) => c.tier === filter)),
     [filter]
   );
 
-  const run = (crimeId: string) => {
-    const res = commit(crimeId, (n) => {
-      useGameStore.setState({
-        credits: useGameStore.getState().credits + n,
-        totalCreditsEarned: useGameStore.getState().totalCreditsEarned + n,
-      });
-    });
-    if ("blocked" in res) {
-      toast.error(res.blocked, { duration: 2500 });
-      return;
-    }
-    if ("jailSeconds" in res) {
+  const run = async (crimeId: string) => {
+    const res = await commit(crimeId);
+    if (!res) return;
+    if (res.kind === "blocked") {
+      toast.error(res.reason, { duration: 2500 });
+    } else if (res.kind === "failure") {
       toast.error(`❌ Capturado. Cárcel: ${fmtTime(res.jailSeconds)}`, { duration: 3500 });
     } else {
       toast.success(
@@ -146,7 +139,6 @@ function CrimesTab() {
 
   return (
     <div>
-      {/* Tier filter */}
       <div style={{ display: "flex", gap: 5, marginBottom: 12, flexWrap: "wrap" }}>
         {[0, 1, 2, 3, 4, 5].map((t) => (
           <button
@@ -169,8 +161,8 @@ function CrimesTab() {
         {filtered.map((crime) => {
           const locked =
             level < crime.requiredLevel ||
-            (crime.requiredStat && effective[crime.requiredStat.stat] < crime.requiredStat.value);
-          const nerveInsufficient = getCurrentNerve(state) < crime.nerveCost;
+            (crime.requiredStat && eff[crime.requiredStat.stat] < crime.requiredStat.value);
+          const nerveInsufficient = liveNerve < crime.nerveCost;
           const tier = TIER_LABELS[crime.tier];
           const successRate = Math.round(crime.baseSuccessRate * 100);
           return (
@@ -211,15 +203,15 @@ function CrimesTab() {
               {crime.requiredStat && (
                 <div style={{ fontSize: 9, color: "var(--text-muted)", marginBottom: 6 }}>
                   Requiere {STAT_LABELS[crime.requiredStat.stat].icon} {crime.requiredStat.value}+ ·
-                  tienes {Math.floor(effective[crime.requiredStat.stat])}
+                  tienes {Math.floor(eff[crime.requiredStat.stat])}
                 </div>
               )}
               <button
-                disabled={!!locked || nerveInsufficient}
+                disabled={!!locked || nerveInsufficient || inFlight}
                 onClick={() => run(crime.id)}
                 style={{
                   width: "100%", padding: "8px 10px", borderRadius: 7,
-                  cursor: locked || nerveInsufficient ? "not-allowed" : "pointer",
+                  cursor: locked || nerveInsufficient || inFlight ? "not-allowed" : "pointer",
                   border: `1px solid ${locked ? "rgba(255,255,255,0.06)" : "rgba(244,63,94,0.3)"}`,
                   background: locked ? "rgba(255,255,255,0.03)" : "rgba(244,63,94,0.1)",
                   color: locked ? "var(--text-muted)" : "#f43f5e",
@@ -227,29 +219,27 @@ function CrimesTab() {
                   fontFamily: "var(--font-main)",
                 }}
               >
-                {locked ? `🔒 Nivel ${crime.requiredLevel}` : nerveInsufficient ? "Sin nervio" : "▶ EJECUTAR"}
+                {locked ? `🔒 Nivel ${crime.requiredLevel}` : nerveInsufficient ? "Sin nervio" : inFlight ? "..." : "▶ EJECUTAR"}
               </button>
             </motion.div>
           );
         })}
       </div>
-      {/* Reference silent usage to appease lint */}
-      <span style={{ display: "none" }}>{credits.credits}</span>
     </div>
   );
 }
 
 // ── Gym tab ───────────────────────────────────────────────
-function GymTab() {
-  const state = useUnderworldStore();
+function GymTab({ snap }: { snap: UnderworldSnapshot }) {
   const train = useUnderworldStore((s) => s.trainStat);
-  const effective = getEffectiveStats(state);
+  const inFlight = useUnderworldStore((s) => s.inFlight);
   const [energyAmt, setEnergyAmt] = useState(10);
-  const curEnergy = getCurrentEnergy(state);
+  const curEnergy = getLiveEnergy(snap);
 
-  const handleTrain = (stat: Stat) => {
-    const res = train(stat, energyAmt);
-    if ("blocked" in res) { toast.error(res.blocked); return; }
+  const handleTrain = async (stat: Stat) => {
+    const res = await train(stat, energyAmt);
+    if (!res) return;
+    if (res.kind === "blocked") { toast.error(res.reason); return; }
     toast.success(`${STAT_LABELS[stat].icon} +${res.gained.toFixed(2)} ${STAT_LABELS[stat].label}`);
   };
 
@@ -286,8 +276,8 @@ function GymTab() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
         {(Object.keys(STAT_LABELS) as Stat[]).map((stat) => {
           const meta = STAT_LABELS[stat];
-          const base = state.stats[stat];
-          const eff = effective[stat];
+          const base = snap.stats[stat];
+          const eff = snap.effectiveStats[stat];
           const buffed = eff !== base;
           return (
             <div key={stat} style={{
@@ -310,11 +300,11 @@ function GymTab() {
                 </div>
               </div>
               <button
-                disabled={curEnergy < energyAmt}
+                disabled={curEnergy < energyAmt || inFlight}
                 onClick={() => handleTrain(stat)}
                 style={{
                   width: "100%", padding: "8px 10px", borderRadius: 7,
-                  cursor: curEnergy < energyAmt ? "not-allowed" : "pointer",
+                  cursor: curEnergy < energyAmt || inFlight ? "not-allowed" : "pointer",
                   border: "1px solid rgba(34,211,238,0.3)",
                   background: curEnergy < energyAmt ? "rgba(255,255,255,0.03)" : "rgba(34,211,238,0.1)",
                   color: curEnergy < energyAmt ? "var(--text-muted)" : "#22d3ee",
@@ -333,26 +323,24 @@ function GymTab() {
 }
 
 // ── Inventory tab ─────────────────────────────────────────
-function InventoryTab() {
-  const inventory = useUnderworldStore((s) => s.inventory);
+function InventoryTab({ snap }: { snap: UnderworldSnapshot }) {
   const use = useUnderworldStore((s) => s.useItem);
   const sell = useUnderworldStore((s) => s.sellItem);
+  const inFlight = useUnderworldStore((s) => s.inFlight);
 
-  const entries = Object.entries(inventory).filter(([, qty]) => qty > 0);
+  const entries = Object.entries(snap.inventory).filter(([, qty]) => qty > 0);
 
-  const handleUse = (id: string) => {
-    const res = use(id);
-    if ("message" in res) toast.success(res.message, { duration: 3500 });
+  const handleUse = async (id: string) => {
+    const res = await use(id);
+    if (!res) return;
+    if (res.kind === "ok") toast.success(res.message, { duration: 3500 });
     else toast.error(res.reason);
   };
-  const handleSell = (id: string) => {
-    const res = sell(id, (n) => {
-      useGameStore.setState({
-        credits: useGameStore.getState().credits + n,
-        totalCreditsEarned: useGameStore.getState().totalCreditsEarned + n,
-      });
-    });
-    if (res.ok) toast.success(`Vendido por Đ${res.received.toLocaleString()}`);
+  const handleSell = async (id: string) => {
+    const res = await sell(id);
+    if (!res) return;
+    if (res.kind === "ok") toast.success(`Vendido por Đ${res.received.toLocaleString()}`);
+    else toast.error(res.reason);
   };
 
   if (entries.length === 0) {
@@ -387,18 +375,20 @@ function InventoryTab() {
             <div style={{ display: "flex", gap: 6 }}>
               {item.type !== "loot" && (
                 <button
+                  disabled={inFlight}
                   onClick={() => handleUse(id)}
                   style={{
-                    flex: 1, padding: "6px", borderRadius: 6, cursor: "pointer",
+                    flex: 1, padding: "6px", borderRadius: 6, cursor: inFlight ? "not-allowed" : "pointer",
                     border: "1px solid rgba(34,211,238,0.3)", background: "rgba(34,211,238,0.1)",
                     color: "#22d3ee", fontSize: 10, fontWeight: 700, fontFamily: "var(--font-main)",
                   }}
                 >USAR</button>
               )}
               <button
+                disabled={inFlight}
                 onClick={() => handleSell(id)}
                 style={{
-                  flex: 1, padding: "6px", borderRadius: 6, cursor: "pointer",
+                  flex: 1, padding: "6px", borderRadius: 6, cursor: inFlight ? "not-allowed" : "pointer",
                   border: "1px solid rgba(255,215,0,0.3)", background: "rgba(255,215,0,0.08)",
                   color: "#ffd700", fontSize: 10, fontWeight: 700, fontFamily: "var(--font-main)",
                 }}
@@ -412,22 +402,20 @@ function InventoryTab() {
 }
 
 // ── Stats tab ─────────────────────────────────────────────
-function StatsTab() {
-  const s = useUnderworldStore();
-  const { level, current, needed } = xpProgress(s.xp);
-  const effective = getEffectiveStats(s);
-  const successRate = s.crimesCommitted + s.crimesFailed > 0
-    ? (s.crimesCommitted / (s.crimesCommitted + s.crimesFailed)) * 100
+function StatsTab({ snap }: { snap: UnderworldSnapshot }) {
+  const { level, current, needed } = xpProgress(snap.xp);
+  const successRate = snap.crimesCommitted + snap.crimesFailed > 0
+    ? (snap.crimesCommitted / (snap.crimesCommitted + snap.crimesFailed)) * 100
     : 0;
 
-  const rows = [
+  const rows: [string, string][] = [
     ["Nivel",                `${level}`],
-    ["XP total",             `${s.xp.toLocaleString()} (${current}/${needed})`],
-    ["Crímenes completados", `${s.crimesCommitted}`],
-    ["Crímenes fallidos",    `${s.crimesFailed}`],
+    ["XP total",             `${snap.xp.toLocaleString()} (${current}/${needed})`],
+    ["Crímenes completados", `${snap.crimesCommitted}`],
+    ["Crímenes fallidos",    `${snap.crimesFailed}`],
     ["Tasa de éxito",        `${successRate.toFixed(1)}%`],
-    ["Botín total",          `Đ ${s.totalLoot.toLocaleString()}`],
-    ["Buffs activos",        `${s.tempBuffs.length}`],
+    ["Botín total",          `Đ ${snap.totalLoot.toLocaleString()}`],
+    ["Buffs activos",        `${snap.tempBuffs.length}`],
   ];
 
   return (
@@ -435,8 +423,8 @@ function StatsTab() {
       <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: 16 }}>
         <div style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: 1.5, fontWeight: 700, marginBottom: 10 }}>ESTADÍSTICAS</div>
         {(Object.keys(STAT_LABELS) as Stat[]).map((stat) => {
-          const base = s.stats[stat];
-          const eff = effective[stat];
+          const base = snap.stats[stat];
+          const eff = snap.effectiveStats[stat];
           return (
             <div key={stat} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
               <span style={{ fontSize: 12 }}>{STAT_LABELS[stat].icon} {STAT_LABELS[stat].label}</span>
@@ -463,14 +451,47 @@ function StatsTab() {
 // ── Main component ────────────────────────────────────────
 export default function UnderworldView() {
   const [tab, setTab] = useState<"crimes" | "gym" | "inventory" | "stats">("crimes");
-  const refresh = useUnderworldStore((s) => s.refreshDerived);
+  const { snapshot, loading, error, fetchState } = useUnderworldStore();
 
-  // Refresh derived values (nerve/energy/jail) every second while mounted
+  // Fetch on mount, and refresh every 30s while mounted so regen and jail timers stay reasonably fresh
   useEffect(() => {
-    refresh();
-    const id = setInterval(refresh, 1000);
+    fetchState();
+    const id = setInterval(fetchState, 30_000);
     return () => clearInterval(id);
-  }, [refresh]);
+  }, [fetchState]);
+
+  // Also force a UI re-render every second so the bars animate smoothly client-side
+  const [, setBeat] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setBeat((b) => b + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (error && !snapshot) {
+    return (
+      <div style={{ padding: 40, textAlign: "center", color: "#f43f5e", fontSize: 13 }}>
+        No se pudo cargar Underworld: {error}
+        <div>
+          <button
+            onClick={fetchState}
+            style={{
+              marginTop: 12, padding: "8px 16px", borderRadius: 7,
+              background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)",
+              color: "#f43f5e", cursor: "pointer", fontWeight: 700,
+            }}
+          >Reintentar</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!snapshot || loading) {
+    return (
+      <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
+        Cargando Underworld…
+      </div>
+    );
+  }
 
   const tabs: { id: typeof tab; label: string; icon: string }[] = [
     { id: "crimes",    label: "Crímenes",   icon: "🦹" },
@@ -481,10 +502,9 @@ export default function UnderworldView() {
 
   return (
     <div style={{ color: "var(--text-primary)" }}>
-      <UnderworldHeader />
-      <JailBanner />
+      <UnderworldHeader snap={snapshot} />
+      <JailBanner jailUntil={snapshot.jailUntil} />
 
-      {/* Tabs */}
       <div style={{ display: "flex", gap: 4, marginBottom: 14, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         {tabs.map((t) => (
           <button
@@ -513,10 +533,10 @@ export default function UnderworldView() {
           exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.15 }}
         >
-          {tab === "crimes"    && <CrimesTab />}
-          {tab === "gym"       && <GymTab />}
-          {tab === "inventory" && <InventoryTab />}
-          {tab === "stats"     && <StatsTab />}
+          {tab === "crimes"    && <CrimesTab snap={snapshot} />}
+          {tab === "gym"       && <GymTab snap={snapshot} />}
+          {tab === "inventory" && <InventoryTab snap={snapshot} />}
+          {tab === "stats"     && <StatsTab snap={snapshot} />}
         </motion.div>
       </AnimatePresence>
     </div>
