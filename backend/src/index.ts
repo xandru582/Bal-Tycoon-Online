@@ -21,8 +21,12 @@ import chatRoutes from "./routes/chat.routes.js";
 import missionRoutes from "./routes/mission.routes.js";
 import leaderboardRoutes from "./routes/leaderboard.routes.js";
 import underworldRoutes from "./routes/underworld.routes.js";
+import { errorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
+// Trust the first proxy (nginx) so req.ip reflects the real client.
+// Without this, rate limiting buckets everyone under the proxy's IP.
+app.set("trust proxy", 1);
 const httpServer = createServer(app);
 
 // ── Socket.io ──────────────────────────────────────────────────────
@@ -58,6 +62,9 @@ app.use("/api/v1/underworld", underworldRoutes);
 
 // ── 404 fallback ───────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
+
+// ── Central error handler (must be last so all thrown errors funnel here) ──
+app.use(errorHandler);
 
 // ── Startup ────────────────────────────────────────────────────────
 async function migrate() {

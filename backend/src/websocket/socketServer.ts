@@ -103,16 +103,34 @@ export function setupSocketServer(io: SocketIOServer): void {
     });
 
     // ── chat:message ─────────────────────────────────────────────
-    socket.on("chat:message", async (data: { room: string; roomType?: string; content: string; targetUserId?: string }) => {
+    // Security: the room id is ALWAYS derived server-side from the user's
+    // identity — never from `data.room` — so clients can't spam into rooms
+    // they don't belong to.
+    socket.on("chat:message", async (data: { roomType?: string; content?: string; targetUserId?: string }) => {
       try {
-        let roomType: any = data.roomType ?? "global";
-        let roomId = data.room;
+        const content = typeof data?.content === "string" ? data.content.trim() : "";
+        if (!content) return socket.emit("chat:error", { error: "Empty message" });
+        if (content.length > 500) return socket.emit("chat:error", { error: "Message too long (max 500)" });
 
-        if (roomType === "dm" && data.targetUserId) {
+        const roomType = data?.roomType === "clan" || data?.roomType === "dm" ? data.roomType : "global";
+
+        let roomId: string;
+        if (roomType === "clan") {
+          if (!socket.clanId) return socket.emit("chat:error", { error: "Not in a clan" });
+          roomId = socket.clanId;
+        } else if (roomType === "dm") {
+          if (!data?.targetUserId || typeof data.targetUserId !== "string") {
+            return socket.emit("chat:error", { error: "targetUserId required" });
+          }
+          if (data.targetUserId === userId) {
+            return socket.emit("chat:error", { error: "Cannot DM yourself" });
+          }
           roomId = chatService.dmRoomId(userId, data.targetUserId);
+        } else {
+          roomId = "global";
         }
 
-        const msg = await chatService.saveMessage(roomType, roomId, userId, username, data.content);
+        const msg = await chatService.saveMessage(roomType, roomId, userId, username, content);
 
         const outMsg = {
           id: msg.id,
@@ -126,14 +144,15 @@ export function setupSocketServer(io: SocketIOServer): void {
 
         if (roomType === "global") {
           io.emit("chat:message", outMsg);
-        } else if (roomType === "clan" && socket.clanId) {
-          io.to(`clan:${socket.clanId}`).emit("chat:message", outMsg);
+        } else if (roomType === "clan") {
+          io.to(`clan:${roomId}`).emit("chat:message", outMsg);
         } else if (roomType === "dm" && data.targetUserId) {
           io.to(`user:${userId}`).emit("chat:message", outMsg);
           io.to(`user:${data.targetUserId}`).emit("chat:message", outMsg);
         }
       } catch (err: any) {
-        socket.emit("chat:error", { error: err.message });
+        console.error("chat:message error:", err);
+        socket.emit("chat:error", { error: "Could not send message" });
       }
     });
 

@@ -43,3 +43,9 @@ frontend/node_modules/
 
 # Root
 tsc_errors.log
+
+# Claude Code / editor local state — user-specific, not project config
+.claude/
+
+# Legacy pre-rewrite source tree (removed; keep ignored to prevent accidental re-add)
+src_legacy/

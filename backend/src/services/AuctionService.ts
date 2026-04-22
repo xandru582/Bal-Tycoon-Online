@@ -1,4 +1,4 @@
-import { db } from "../config/database.js";
+import { db, withTransaction } from "../config/database.js";
 
 function nextMondayUTC(): Date {
   const now = new Date();
@@ -56,79 +56,87 @@ class AuctionService {
     const auctionId = currentAuctionId();
     const auctionEndsAt = nextMondayUTC();
 
-    if (amount <= 0) throw new Error("Bid must be positive");
+    if (!Number.isFinite(amount) || amount <= 0) throw new Error("Bid must be positive");
+    // Cap to the precision of NUMERIC(20,4) ≈ 10^16 so overflow can't wedge the DB.
+    if (amount > 1e16) throw new Error("Bid too large");
 
-    // Get current winning bid
-    const currentWin = await db.query(
-      `SELECT bb.*, u.username as bidder_name
-       FROM building_bids bb LEFT JOIN users u ON u.id = bb.bidder_id
-       WHERE bb.building_id = $1 AND bb.auction_id = $2 AND bb.is_winning = TRUE`,
-      [buildingId, auctionId]
-    );
-
-    const current = currentWin.rows[0];
-    const building = await db.query("SELECT * FROM buildings WHERE id = $1", [buildingId]);
-    if (!building.rows[0]) throw new Error("Building not found");
-
-    const minBid = current
-      ? parseFloat(current.bid_amount) * 1.05 // +5% over current
-      : parseFloat(building.rows[0].base_price);
-
-    if (amount < minBid) throw new Error(`Minimum bid is ${minBid.toFixed(2)} Đ`);
-
-    // Check bidder has enough credits (reserve bid amount)
-    const funds = await db.query(
-      "SELECT credits FROM game_states WHERE user_id = $1",
-      [bidderId]
-    );
-    if (!funds.rows[0] || parseFloat(funds.rows[0].credits) < amount) {
-      throw new Error("Insufficient credits");
-    }
-
-    // Refund previous winner if exists
-    if (current && current.bidder_id !== bidderId) {
-      await db.query(
-        "UPDATE game_states SET credits = credits + $1 WHERE user_id = $2",
-        [current.bid_amount, current.bidder_id]
+    // All the check/refund/charge logic runs in a single transaction with row
+    // locks so two concurrent bids can't both deduct from the same player or
+    // both "win" the building.
+    const outbidUserId = await withTransaction(async (client) => {
+      // Lock the building row (prevents concurrent bids from racing).
+      const building = await client.query(
+        "SELECT * FROM buildings WHERE id = $1 FOR UPDATE",
+        [buildingId],
       );
-      // Notify them they were outbid
-      if (io) {
-        io.to(`user:${current.bidder_id}`).emit("auction:outbid", {
-          buildingId,
-          newAmount: amount,
-          buildingName: building.rows[0].name,
-        });
+      if (!building.rows[0]) throw new Error("Building not found");
+
+      const currentWin = await client.query(
+        `SELECT * FROM building_bids
+         WHERE building_id = $1 AND auction_id = $2 AND is_winning = TRUE
+         FOR UPDATE`,
+        [buildingId, auctionId],
+      );
+      const current = currentWin.rows[0];
+
+      const minBid = current
+        ? parseFloat(current.bid_amount) * 1.05
+        : parseFloat(building.rows[0].base_price);
+      if (amount < minBid) throw new Error(`Minimum bid is ${minBid.toFixed(2)} Đ`);
+
+      // Atomically deduct from the new bidder. WHERE guards against
+      // insufficient funds so a race can't take credits negative.
+      const deducted = await client.query(
+        `UPDATE game_states
+         SET credits = credits - $1
+         WHERE user_id = $2 AND credits >= $1
+         RETURNING credits`,
+        [amount, bidderId],
+      );
+      if (!deducted.rows[0]) throw new Error("Insufficient credits");
+
+      // Refund previous winner if any (and it's not the same user bidding
+      // against themselves).
+      let refundedBidderId: string | null = null;
+      if (current && current.bidder_id !== bidderId) {
+        await client.query(
+          "UPDATE game_states SET credits = credits + $1 WHERE user_id = $2",
+          [current.bid_amount, current.bidder_id],
+        );
+        refundedBidderId = current.bidder_id;
+      } else if (current && current.bidder_id === bidderId) {
+        // Same bidder topping their own bid — refund the prior reservation.
+        await client.query(
+          "UPDATE game_states SET credits = credits + $1 WHERE user_id = $2",
+          [current.bid_amount, current.bidder_id],
+        );
       }
-    }
 
-    // Deduct credits from new bidder
-    await db.query(
-      "UPDATE game_states SET credits = credits - $1 WHERE user_id = $2",
-      [amount, bidderId]
-    );
+      await client.query(
+        "UPDATE building_bids SET is_winning = FALSE WHERE building_id = $1 AND auction_id = $2",
+        [buildingId, auctionId],
+      );
+      await client.query(
+        `INSERT INTO building_bids (building_id, auction_id, bidder_id, bid_amount, is_winning, auction_ends_at)
+         VALUES ($1,$2,$3,$4,TRUE,$5)`,
+        [buildingId, auctionId, bidderId, amount, auctionEndsAt],
+      );
+      return refundedBidderId;
+    });
 
-    // Mark previous bids as not winning
-    await db.query(
-      "UPDATE building_bids SET is_winning = FALSE WHERE building_id = $1 AND auction_id = $2",
-      [buildingId, auctionId]
-    );
-
-    // Insert new winning bid
-    await db.query(
-      `INSERT INTO building_bids (building_id, auction_id, bidder_id, bid_amount, is_winning, auction_ends_at)
-       VALUES ($1,$2,$3,$4,TRUE,$5)`,
-      [buildingId, auctionId, bidderId, amount, auctionEndsAt]
-    );
-
-    // Broadcast new bid to all
-    if (io) {
-      io.emit("auction:new_bid", {
+    // Side-effects (notifications) happen only AFTER commit, so a rollback
+    // never leaves the chat/UI lying about what's on chain.
+    const building = await db.query("SELECT name FROM buildings WHERE id = $1", [buildingId]);
+    const buildingName = building.rows[0]?.name;
+    if (io && outbidUserId) {
+      io.to(`user:${outbidUserId}`).emit("auction:outbid", {
         buildingId,
-        buildingName: building.rows[0].name,
-        amount,
-        bidderId,
-        bidderName,
+        newAmount: amount,
+        buildingName,
       });
+    }
+    if (io) {
+      io.emit("auction:new_bid", { buildingId, buildingName, amount, bidderId, bidderName });
     }
 
     return { success: true, amount };

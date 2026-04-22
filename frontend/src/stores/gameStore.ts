@@ -251,8 +251,16 @@ function upgradeCost(base: number, owned: number): number {
   return Math.floor(base * Math.pow(1.15, owned));
 }
 
+/** Cryptographically strong ID if available (all modern browsers);
+ *  fallback keeps the app working on older engines. */
+function makeId(prefix: string): string {
+  const g = globalThis as { crypto?: { randomUUID?: () => string } };
+  const uuid = g.crypto?.randomUUID?.();
+  return uuid ? `${prefix}_${uuid}` : `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function makeNotification(type: Notification['type'], title: string, message: string, icon: string): Notification {
-  return { id: `n_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, type, title, message, icon, timestamp: Date.now(), read: false };
+  return { id: makeId("n"), type, title, message, icon, timestamp: Date.now(), read: false };
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

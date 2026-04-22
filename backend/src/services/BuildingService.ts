@@ -78,7 +78,7 @@ class BuildingService {
   async buyBuilding(
     buildingId: string,
     userId: string,
-    username: string,
+    _username: string,
     currentCredits: number
   ): Promise<{ success: boolean; error?: string; cost?: number; cpsGained?: number }> {
     const b = await this.getBuildingById(buildingId);
@@ -89,10 +89,19 @@ class BuildingService {
     const cost = b.base_price;
     if (currentCredits < cost) return { success: false, error: `Necesitas Đ ${cost.toLocaleString()}` };
 
-    await db.query(
-      `UPDATE buildings SET owner_id = $1, level = 1, owned_since = NOW() WHERE id = $2`,
+    // Atomic claim: only succeed if the building is still unowned. Two
+    // racing buyers can't both win, because the second update finds
+    // owner_id IS NOT NULL and returns 0 rows.
+    const claim = await db.query(
+      `UPDATE buildings
+       SET owner_id = $1, level = 1, owned_since = NOW()
+       WHERE id = $2 AND owner_id IS NULL
+       RETURNING id`,
       [userId, buildingId]
     );
+    if (!claim.rows[0]) {
+      return { success: false, error: "Otro jugador compró este edificio justo antes que tú." };
+    }
 
     return { success: true, cost, cpsGained: this.cpsAtLevel(b.cps_base, 1) };
   }
@@ -184,12 +193,18 @@ class BuildingService {
 
     const sellerId = b.owner_id!;
 
-    await db.query(
+    // Atomic transfer — only succeeds if the building is still on sale AND
+    // still owned by the same seller. Prevents double-sell races.
+    const claim = await db.query(
       `UPDATE buildings
-       SET owner_id = $1, for_sale = FALSE, sale_price = NULL, level = $2, owned_since = NOW()
-       WHERE id = $3`,
-      [buyerId, b.level, buildingId]
+       SET owner_id = $1, for_sale = FALSE, sale_price = NULL, owned_since = NOW()
+       WHERE id = $2 AND for_sale = TRUE AND owner_id = $3 AND sale_price = $4
+       RETURNING id`,
+      [buyerId, buildingId, sellerId, cost]
     );
+    if (!claim.rows[0]) {
+      return { success: false, error: "El anuncio cambió antes de completar la compra." };
+    }
 
     return {
       success: true,

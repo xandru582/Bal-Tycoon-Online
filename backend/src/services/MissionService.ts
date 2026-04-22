@@ -1,4 +1,4 @@
-import { db } from "../config/database.js";
+import { db, withTransaction } from "../config/database.js";
 
 class MissionService {
   // Asigna misiones diarias/semanales si no hay activas
@@ -84,32 +84,50 @@ class MissionService {
   }
 
   async claimReward(missionInstanceId: string, userId: string): Promise<{ credits: number; influence: number }> {
-    const result = await db.query(
-      `SELECT pm.*, md.reward_credits, md.reward_influence
-       FROM player_missions pm JOIN mission_definitions md ON md.id = pm.mission_id
-       WHERE pm.id = $1 AND pm.user_id = $2`,
-      [missionInstanceId, userId]
-    );
-    const mission = result.rows[0];
-    if (!mission) throw new Error("Mission not found");
-    if (!mission.is_completed) throw new Error("Mission not yet completed");
-    if (mission.reward_claimed) throw new Error("Reward already claimed");
+    // Single transaction: (1) lock the mission row, (2) verify it's
+    // completed and unclaimed, (3) mark it claimed, (4) credit the reward.
+    // If any step fails everything rolls back, so the mission is never
+    // "claimed but not paid".
+    return withTransaction(async (client) => {
+      const result = await client.query(
+        `SELECT pm.id, pm.is_completed, pm.reward_claimed,
+                md.reward_credits, md.reward_influence
+         FROM player_missions pm
+         JOIN mission_definitions md ON md.id = pm.mission_id
+         WHERE pm.id = $1 AND pm.user_id = $2
+         FOR UPDATE OF pm`,
+        [missionInstanceId, userId],
+      );
+      const mission = result.rows[0];
+      if (!mission) throw new Error("Mission not found");
+      if (!mission.is_completed) throw new Error("Mission not yet completed");
+      if (mission.reward_claimed) throw new Error("Reward already claimed");
 
-    await db.query(
-      "UPDATE player_missions SET reward_claimed = TRUE WHERE id = $1",
-      [missionInstanceId]
-    );
+      // Atomic flip to claimed. If another concurrent claim somehow slipped
+      // through we'd still get 0 rows here and throw.
+      const flip = await client.query(
+        `UPDATE player_missions
+         SET reward_claimed = TRUE
+         WHERE id = $1 AND reward_claimed = FALSE
+         RETURNING id`,
+        [missionInstanceId],
+      );
+      if (!flip.rows[0]) throw new Error("Reward already claimed");
 
-    await db.query(
-      `UPDATE game_states SET
-         credits = credits + $1,
-         total_earned = total_earned + $1,
-         influence = influence + $2
-       WHERE user_id = $3`,
-      [mission.reward_credits, mission.reward_influence, userId]
-    );
+      await client.query(
+        `UPDATE game_states SET
+           credits = credits + $1,
+           total_earned = total_earned + $1,
+           influence = influence + $2
+         WHERE user_id = $3`,
+        [mission.reward_credits, mission.reward_influence, userId],
+      );
 
-    return { credits: parseFloat(mission.reward_credits), influence: mission.reward_influence };
+      return {
+        credits: parseFloat(mission.reward_credits),
+        influence: mission.reward_influence,
+      };
+    });
   }
 
   // Update progress for a mission type (called after game actions)
